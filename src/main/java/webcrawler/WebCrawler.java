@@ -85,6 +85,7 @@ public class WebCrawler {
 
     }
 
+    
     public boolean insertDB(String produto, Float price, String farmacia, Connection conn) {
 
         //1 - get FARMACIA ID
