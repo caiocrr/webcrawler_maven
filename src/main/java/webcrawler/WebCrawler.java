@@ -40,11 +40,80 @@ public class WebCrawler {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-
+//
         WebCrawler crawler = new WebCrawler();
+//        crawler.pacheco();
+        crawler.farmagora();
+    }
 
-//        BrowserEngine browser = BrowserFactory.getWebKit();
-        crawler.pacheco();
+    public void farmagora() {
+        Connection conn = getConnection();
+
+        for (int j = 1; j <= 229; j++) {
+            String URL = "http://www.farmagora.com.br/departamento/1//0/pag" + j;
+
+            Document doc;
+            try {
+                org.jsoup.Connection conn2 = Jsoup.connect(URL);
+                conn2.userAgent("Mozilla/5.0");
+
+                doc = conn2.get();
+                Elements all = doc.select("div#lista.listagem2.listagem");
+                Elements produtos = all.select("ul");
+
+                NumberFormat nf = NumberFormat.getNumberInstance(new Locale("pt", "BR"));
+                for (int i = 0; i < produtos.size(); i++) {
+                    Elements li = produtos.get(i).select("li.dadosProduto");
+                    Elements nome = li.select("a");
+
+                    Elements preco = produtos.get(i).select("div.parcela");
+
+                    if (insertDB(nome.get(0).text(), nf.parse(preco.get(0).text().split(" ")[1]).floatValue(), "Farmagora", conn)) {
+                        System.out.println("Inserido " + nome.get(0).text() + "  -  " + nf.parse(preco.get(0).text().split(" ")[1]).floatValue());
+                    }
+                }
+
+            } catch (IOException ex) {
+                Logger.getLogger(WebCrawler.class.getName()).log(Level.SEVERE, null, ex);
+//            } catch (ParseException ex) {
+//                Logger.getLogger(WebCrawler.class.getName()).log(Level.SEVERE, null, ex);
+//            }
+
+            } catch (ParseException ex) {
+                Logger.getLogger(WebCrawler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+    }
+
+    public void ultrafarma() {
+        Connection conn = getConnection();
+
+        for (int j = 362; j <= 561; j++) {
+            String URL = "http://www.ultrafarma.com.br/categoria-372/ordem-1/pagina-" + j + "/Medicamentos.html";
+
+            Document doc;
+            try {
+                doc = Jsoup.connect(URL).get();
+                Elements produto = doc.select("div.conjuto_produtos_categorias");
+                NumberFormat nf = NumberFormat.getNumberInstance(new Locale("pt", "BR"));
+                for (int i = 0; i < produto.size(); i++) {
+
+                    Elements nome = produto.select("a.lista_produtos");
+                    Elements preco = produto.select("div.txt_por");
+
+                    if (insertDB(nome.get(i).text(), nf.parse(preco.get(i).text().split(" ")[2]).floatValue(), "Ultra Farma", conn)) {
+                        System.out.println("Inserido " + nome.get(i).text());
+                    }
+                }
+
+            } catch (IOException ex) {
+                Logger.getLogger(WebCrawler.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (ParseException ex) {
+                Logger.getLogger(WebCrawler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
 
     }
 
@@ -72,7 +141,9 @@ public class WebCrawler {
                 Elements prices = content.get(i).select("span.bestPrice").select("span.the-price");
                 if (prices.size() != 0) {
                     try {
-                        insertDB(title, nf.parse(prices.get(0).text().substring(2).trim()).floatValue(), "Drogarias Pacheco", conn);
+                        if (insertDB(title, nf.parse(prices.get(0).text().substring(2).trim()).floatValue(), "Drogarias Pacheco", conn)) {
+                            System.out.println("Inserido " + title);
+                        }
                     } catch (ParseException ex) {
                         Logger.getLogger(WebCrawler.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -85,7 +156,6 @@ public class WebCrawler {
 
     }
 
-    
     public boolean insertDB(String produto, Float price, String farmacia, Connection conn) {
 
         //1 - get FARMACIA ID
@@ -128,6 +198,7 @@ public class WebCrawler {
 
                 }
             }
+            return true;
 
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -135,6 +206,16 @@ public class WebCrawler {
         }
 
         return false;
+    }
+
+    public static String convertUTF8toISO(String str) {
+        String ret = null;
+        try {
+            ret = new String(str.getBytes("ISO-8859-1"), "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return null;
+        }
+        return ret;
     }
 
     private String[] extrairPalavras(String busca) {
