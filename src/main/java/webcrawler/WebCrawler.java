@@ -42,8 +42,9 @@ public class WebCrawler {
     public static void main(String[] args) {
 //
         WebCrawler crawler = new WebCrawler();
+//        crawler.farmagora();
+        crawler.ultrafarma();
 //        crawler.pacheco();
-        crawler.farmagora();
     }
 
     public void farmagora() {
@@ -65,11 +66,15 @@ public class WebCrawler {
                 for (int i = 0; i < produtos.size(); i++) {
                     Elements li = produtos.get(i).select("li.dadosProduto");
                     Elements nome = li.select("a");
+                    String link = nome.get(0).attr("href");
+
+                    Element image = produtos.get(i).select("img").first();
+                    String url = image.absUrl("src");
 
                     Elements preco = produtos.get(i).select("div.parcela");
 
-                    if (insertDB(nome.get(0).text(), nf.parse(preco.get(0).text().split(" ")[1]).floatValue(), "Farmagora", conn)) {
-                        System.out.println("Inserido " + nome.get(0).text() + "  -  " + nf.parse(preco.get(0).text().split(" ")[1]).floatValue());
+                    if (insertDB(nome.get(0).text(), nf.parse(preco.get(0).text().split(" ")[1]).floatValue(), link, url, "Farmagora", conn)) {
+                        System.out.println(j+ "Inserido " + nome.get(0).text() + "  -  " + nf.parse(preco.get(0).text().split(" ")[1]).floatValue() + " " + link + " "+ url);
                     }
                 }
 
@@ -89,7 +94,7 @@ public class WebCrawler {
     public void ultrafarma() {
         Connection conn = getConnection();
 
-        for (int j = 362; j <= 561; j++) {
+        for (int j = 1; j <= 561; j++) {
             String URL = "http://www.ultrafarma.com.br/categoria-372/ordem-1/pagina-" + j + "/Medicamentos.html";
 
             Document doc;
@@ -99,11 +104,17 @@ public class WebCrawler {
                 NumberFormat nf = NumberFormat.getNumberInstance(new Locale("pt", "BR"));
                 for (int i = 0; i < produto.size(); i++) {
 
-                    Elements nome = produto.select("a.lista_produtos");
-                    Elements preco = produto.select("div.txt_por");
+                    Element nome = produto.get(i).select("a.lista_produtos").first();
+                    String link = nome.attr("href");
+                    Element preco = produto.get(i).select("div.txt_por").first();
 
-                    if (insertDB(nome.get(i).text(), nf.parse(preco.get(i).text().split(" ")[2]).floatValue(), "Ultra Farma", conn)) {
-                        System.out.println("Inserido " + nome.get(i).text());
+                    
+                    Element divImagemProduto = produto.get(i).select("div.divImagemProduto").first();       
+                    Element image = divImagemProduto.select("img").first();
+                    String url = image.absUrl("src");
+
+                    if (insertDB(nome.text(), nf.parse(preco.text().split(" ")[2]).floatValue(), link, url, "Ultra Farma", conn)) {
+                        System.out.println(j + " Inserido " + nome.text() + " " + nf.parse(preco.text().split(" ")[2]).floatValue() + " " + link + " " + url);
                     }
                 }
 
@@ -132,18 +143,26 @@ public class WebCrawler {
             doc = Jsoup.parse(driver.getPageSource());
 
             Elements medicamentos = doc.select("li.medicamentos");
-            Elements content = medicamentos.select("a");
+            
 
             NumberFormat nf = NumberFormat.getNumberInstance(new Locale("pt", "BR"));
-            for (int i = 0; i < content.size(); i++) {
-                String title = content.get(i).attr("title");
+            for (int i = 0; i < medicamentos.size(); i++) {
+                Element content = medicamentos.get(i).select("a").first();
+                
+                Element image = content.select("img").first();
+                String url = image.absUrl("src");
+                
+                
+                String title = content.attr("title");
+                String link = content.attr("href");
 
-                Elements prices = content.get(i).select("span.bestPrice").select("span.the-price");
+                Elements prices = content.select("span.bestPrice").select("span.the-price");
+                
                 if (prices.size() != 0) {
                     try {
-                        if (insertDB(title, nf.parse(prices.get(0).text().substring(2).trim()).floatValue(), "Drogarias Pacheco", conn)) {
-                            System.out.println("Inserido " + title);
-                        }
+                        if (insertDB(title, nf.parse(prices.get(0).text().substring(2).trim()).floatValue(),link,url,"Drogarias Pacheco", conn)) {
+                            System.out.println(j+ " Inserido " + title + " " + nf.parse(prices.get(0).text().substring(2).trim()).floatValue() + " " + link + " " + url);
+                        } 
                     } catch (ParseException ex) {
                         Logger.getLogger(WebCrawler.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -156,7 +175,7 @@ public class WebCrawler {
 
     }
 
-    public boolean insertDB(String produto, Float price, String farmacia, Connection conn) {
+    public boolean insertDB(String produto, Float price, String link, String linkimg, String farmacia, Connection conn) {
 
         //1 - get FARMACIA ID
         String query = "SELECT id_farmacia FROM farmacias WHERE nome=?";
@@ -171,11 +190,13 @@ public class WebCrawler {
                 //Main Table
                 int id_farmacia = rSet.getInt(1);
 
-                String insertPreco = "INSERT into precos(nome,preco,id_farmacia) values(?,?,?) RETURNING id";
+                String insertPreco = "INSERT into precos(nome,preco,link,linkimg,id_farmacia) values(?,?,?,?,?) RETURNING id";
                 PreparedStatement ppStm2 = conn.prepareStatement(insertPreco);
                 ppStm2.setString(1, produto);
                 ppStm2.setFloat(2, price);
-                ppStm2.setInt(3, id_farmacia);
+                ppStm2.setString(3, link);
+                ppStm2.setString(4, linkimg);
+                ppStm2.setInt(5, id_farmacia);
 
                 ResultSet rSet2 = ppStm2.executeQuery();
 
